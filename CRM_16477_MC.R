@@ -38,3 +38,25 @@ write_named_csv <- function(x)
 
 ####Import data from SF####
 sf_auth()
+
+###bring in Contact Records
+my_soql_contact <- sprintf("SELECT Id,	Emplid__c, Email, User__c, 
+                            Primary_Department__r.Name, NetId__c, 
+                            hed__Primary_Organization__c, MDM_Primary_Type__c
+                            FROM Contact")
+
+contact_records <- sf_query(my_soql_contact, object_name="Contact", api_type="Bulk 1.0")
+
+###bring in User object fields
+soql_users <- sprintf("SELECT Id, Email, UserType, Name, NetID__c, Profile.Name, 
+                    ContactId, CreatedDate, Department, ProfileId, UserRoleId, 
+                    UserRole.Name, Title, Username FROM User
+                    WHERE IsActive=TRUE ")
+users_SF <- sf_query(soql_users, object_name="User", api_type="Bulk 1.0")
+
+###bring in affiliation Records
+my_soql_aff <- sprintf("SELECT Academic_Department__c, hed__Affiliation_Type__c, 
+                        hed__Contact__c, hed__Primary__c, hed__Account__r.Name, 
+                        Parent_Organization__c FROM hed__Affiliation__c")
+
+affiliations <- sf_query(my_soql_aff, object_name="hed__Affiliation__c", api_type="Bulk 1.0")
