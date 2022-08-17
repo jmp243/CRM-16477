@@ -159,7 +159,7 @@ names(MC_Logins)
 # from Frances
 names(users_SF)
 
-users<-users_SF[,-c(5,8:12)] # remove Email,"ProfileId", "Title", "Username","UserRoleId","UserType" 
+users<-users_SF[,-c(6)] # remove just name 
 # users<-unique(users)
 users<-distinct(users)
 
@@ -168,7 +168,8 @@ names(perms2prods)
 perms2prods<-perms2prods[,-c(2)] # drop 'n'
 #### merge permission sets to users ####
 users_perms<-merge(users, permissionsets, by.x = "Id", by.y = "AssigneeId")
-users_perms_prods<-merge(users_perms, perms2prods, by.x = "PermissionSet.Name", by.y = "PermissionSet.Name", all.x = TRUE)
+users_perms_prods<-merge(users_perms, perms2prods, by.x = "PermissionSet.Name", 
+                         by.y = "PermissionSet.Name", all.x = TRUE)
 names(users_perms_prods)
 
 upp_c<-merge(users_perms_prods, contact_records, by.x = "Id", by.y = "User__c", all.x = TRUE)
@@ -216,9 +217,9 @@ product_longer <- MC_s_c_u %>%
 names(product_longer)
 
 MC_s_c_u2 <- product_longer %>%
-  select(NetID__c,Name.x,UserRole.Name,  CreatedDate.y, Name.y, Id.y, 
+  select(NetID__c, UserRole.Name,  CreatedDate.y, Id.y, 
          "MC-SFProduct", PermissionSet.Name, Profile.Name.y,
-         hed__Primary_Organization__c.x, Id.x,  
+         hed__Primary_Organization__c.x, Id.x,UserRole.Name,  
          Primary_Department__r.Name.y) %>% 
   distinct()
 
@@ -232,6 +233,20 @@ MC_s_c_u2 %>%
 library(tidyverse)
 MC_s_c_u2 <- MC_s_c_u2 %>% filter(`MC-SFProduct` %in% c("MC", "Marketing - SF"))
 
+#### merge in BU_join ####
+BU_join2 <- inner_join(BU_join, MC_s_c_u2, by = c("OwnerId" = "Id.y"))
+
+#### subset BU_join2 ####
+BU_join_sub <- BU_join2 %>%
+  select(Account__c, CreatedDate, 
+         et4ae5__FromEmail__c, et4ae5__FromName__c,
+         from_NetID__c, UserRole.Name, `MC-SFProduct`, Profile.Name.y,
+         PermissionSet.Name, Primary_Department__r.Name.y) %>% 
+  distinct()
+
+### CreatedDate is from Business_Unit, remove CreatedDate.y
+write_named_csv(BU_join_sub)
+
 #### merge affiliations ####
 #Merge in Affiliations
 names(affiliations)
@@ -239,7 +254,7 @@ affiliation1s <- subset(affiliations, affiliations$hed__Primary__c==TRUE)
 affiliation1s <- affiliation1s[, -c(4)] # remove "hed__Primary__c"   
 affiliation1s<-distinct(affiliation1s)
 
-df_foruse <- merge(MC_s_c_u2, affiliation1s, by.x = "Id.x", by.y = "hed__Contact__c", all.x = TRUE)
+# df_foruse <- merge(MC_s_c_u2, affiliation1s, by.x = "Id.x", by.y = "hed__Contact__c", all.x = TRUE)
 
 
 # figure out how many profile names there are
