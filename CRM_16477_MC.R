@@ -4,7 +4,7 @@
 # 2022-16-08 updated with Business_Unit__c and et4ae5__SendDefinition__c
 
 
-#### clear previous workspace ####
+#### clear previous works`pace ####
 rm(list=ls(all=TRUE)) 
 options(digits=3)
 
@@ -69,7 +69,8 @@ affiliations <- sf_query(my_soql_aff, object_name="hed__Affiliation__c",
 solq_perms<-sprintf("select AssigneeId, PermissionSet.Name, PermissionSet.Type, 
                     PermissionSet.ProfileId, 
                     PermissionSetGroupId from PermissionSetAssignment")
-permissionsets <- sf_query(solq_perms, object_name="PermissionSetAssignment", api_type="Bulk 1.0")
+permissionsets <- sf_query(solq_perms, object_name="PermissionSetAssignment", 
+                           api_type="Bulk 1.0")
 
 #### bring in business units ####
 # solq_BU <-sprintf("SELECT et4ae5__Business_Unit_ID__c,
@@ -195,8 +196,10 @@ names(perms2prods)
 perms2prods<-perms2prods[,-c(2)] # drop 'n'
 #### merge permission sets to users ####
 users_perms<-merge(users, permissionsets, by.x = "Id", by.y = "AssigneeId")
+
 users_perms_prods<-merge(users_perms, perms2prods, by.x = "PermissionSet.Name", 
                          by.y = "PermissionSet.Name", all.x = TRUE)
+
 names(users_perms_prods)
 
 upp_c<-merge(users_perms_prods, contact_records, by.x = "Id", by.y = "User__c", all.x = TRUE)
