@@ -42,11 +42,11 @@ write_named_csv <- function(x)
 sf_auth()
 
 #### bring in business units ####
-solq_BU <-sprintf("SELECT Account__c,
-                      Business_Unit__c, CreatedDate, Id,
-                      Name
-                    FROM Business_Unit_Account__c")
-business_units <- sf_query(solq_BU, object_name="Business_Unit_Account__c", 
+solq_BU <-sprintf("SELECT 
+                      et4ae5__Business_Unit_ID__c, CreatedDate, Id,
+                      Display_Name__c
+                    FROM et4ae5__Business_Unit__c")
+business_units <- sf_query(solq_BU, object_name="et4ae5__Business_Unit__c", 
                            api_type="Bulk 1.0")
 
 #### et4ae5__SendDefinition__c ####
@@ -89,9 +89,13 @@ campaign_mem <- sf_query(solq_campaign_mem, object_name="CampaignMember",
 #### merge in business units and email ####
 library(stringr)
 library(stringi)
+# colnames(business_units)[colnames(business_units) == "Id"] <- "et4ae5__Business_Unit__c"
 
-BU_join <- inner_join(business_units, email, 
-                      by = c("Business_Unit__c"="et4ae5__Business_Unit__c"))
+# BU_join <- inner_join(business_units, email, by = c("Business_Unit__c"="et4ae5__Business_Unit__c"))
+# inner join won't work in R but does in Tableau as an Id to et4ae5__BU
+
+
+BU_join <- inner_join(email, business_units, by = c("et4ae5__Business_Unit__c"="Id"))
 
 BU_join$from_NetID__c <- stri_match_first_regex(BU_join$et4ae5__FromEmail__c,
                                                 "(.*?)\\@")[,2]
