@@ -43,7 +43,7 @@ sf_auth()
 
 #### bring in business units ####
 solq_BU <-sprintf("SELECT 
-                      et4ae5__Business_Unit_ID__c, CreatedDate, Id,
+                      CreatedDate, Id,
                       Display_Name__c
                     FROM et4ae5__Business_Unit__c")
 business_units <- sf_query(solq_BU, object_name="et4ae5__Business_Unit__c", 
@@ -78,10 +78,11 @@ campaign <- sf_query(solq_campaign, object_name="Campaign",
 
 
 #### Campaign Memeber ####
-solq_campaign_mem <- sprintf("SELECT CampaignId, ContactId, 
+solq_campaign_mem <- sprintf("SELECT CampaignId, 
                             LastModifiedById, CreatedDate, CreatedById, Id,
                             Campaign_Member_Source__c
-                             FROM CampaignMember")
+                             FROM CampaignMember") # try with date ContactId 
+# AND Created Date>=2022
 campaign_mem <- sf_query(solq_campaign_mem, object_name="CampaignMember",
                      api_type="Bulk 1.0")
 
@@ -103,10 +104,9 @@ BU_join$from_NetID__c <- stri_match_first_regex(BU_join$et4ae5__FromEmail__c,
 memory.limit(size=2000000)
 
 
-
-# split the dataset for BU_join
-BU_join_1a <- BU_join[1:500000, ]      
-BU_join_1b <- BU_join[500001:949745, ]      
+# # split the dataset for BU_join
+# BU_join_1a <- BU_join[1:500000, ]      
+# BU_join_1b <- BU_join[500001:949745, ]      
 
 #### merge BU Join to campaign ####
 BU_campaign_1a <- inner_join(campaign, BU_join_1a,
