@@ -70,7 +70,7 @@ users_SF <- sf_query(soql_users, object_name="User", api_type="Bulk 1.0")
 
 #### Campaign ####
 solq_campaign <- sprintf("SELECT LastModifiedById, Type, RecordTypeId,
-                            NumberOfContacts, Business_Unit__c, 
+                            NumberOfContacts, Business_Unit__c, Id,
                             ParentId, CreatedById, OwnerId
                        FROM Campaign")
 campaign <- sf_query(solq_campaign, object_name="Campaign",
@@ -78,10 +78,11 @@ campaign <- sf_query(solq_campaign, object_name="Campaign",
 
 
 #### Campaign Memeber ####
-solq_campaign_mem <- sprintf("SELECT CampaignId, 
-                            LastModifiedById, CreatedDate, CreatedById, Id,
+solq_campaign_mem <- sprintf("SELECT CampaignId, ContactId, LastModifiedById, 
+                            CreatedDate, CreatedById, Id,
                             Campaign_Member_Source__c
-                             FROM CampaignMember") # try with date ContactId 
+                             FROM CampaignMember") 
+# try with date ContactId, LastModifiedById, CreatedDate, CreatedById, Id, 
 # AND Created Date>=2022
 campaign_mem <- sf_query(solq_campaign_mem, object_name="CampaignMember",
                      api_type="Bulk 1.0")
@@ -108,6 +109,9 @@ memory.limit(size=2000000)
 # BU_join_1a <- BU_join[1:500000, ]      
 # BU_join_1b <- BU_join[500001:949745, ]      
 
+#### merge campaign to campaign mem ####
+campaign_join <- inner_join(campaign, campaign_mem, 
+                            by = c("Id" = "CampaignId"))
 #### merge BU Join to campaign ####
 BU_campaign_1a <- inner_join(campaign, BU_join_1a,
                       by = c("Business_Unit__c"="Business_Unit__c")) # filter outhalf of BU_join
