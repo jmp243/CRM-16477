@@ -77,8 +77,8 @@ campaign <- sf_query(solq_campaign, object_name="Campaign",
                   api_type="Bulk 1.0")
 
 
-#### Campaign Memeber ####
-solq_campaign_mem <- sprintf("SELECT CampaignId, ContactId, LastModifiedById, 
+#### Campaign Member ####
+solq_campaign_mem <- sprintf("SELECT CampaignId,
                             CreatedDate, CreatedById, Id,
                             Campaign_Member_Source__c
                              FROM CampaignMember") 
@@ -103,7 +103,11 @@ BU_join$from_NetID__c <- stri_match_first_regex(BU_join$et4ae5__FromEmail__c,
                                                 "(.*?)\\@")[,2]
 
 memory.limit(size=2000000)
-
+#### merge users####
+# campaign_users <- inner_join(campaign_mem, users_SF,
+#                              by = c("CreatedById"="Id"))
+# campaign_users <- inner_join(agg_campaign, users_SF, 
+#                              by = c("CreatedById.y"="Id"))
 
 # # split the dataset for BU_join
 # BU_join_1a <- BU_join[1:500000, ]      
@@ -112,12 +116,72 @@ memory.limit(size=2000000)
 #### merge campaign to campaign mem ####
 campaign_join <- inner_join(campaign, campaign_mem, 
                             by = c("Id" = "CampaignId"))
-#### merge BU Join to campaign ####
-BU_campaign_1a <- inner_join(campaign, BU_join_1a,
-                      by = c("Business_Unit__c"="Business_Unit__c")) # filter outhalf of BU_join
 
-BU_campaign_1b <- inner_join(campaign, BU_join_1b,
-                             by = c("Business_Unit__c"="Business_Unit__c")) # filter outhalf of BU_join
+unique(campaign_join$Campaign_Member_Source__c)
+
+# campaign join is too large so consider aggregation
+campaign_subset <- campaign_join %>%
+  select(Business_Unit__c, CreatedDate, Campaign_Member_Source__c, 
+         CreatedById.y, NumberOfContacts) %>% 
+  distinct()
+
+# campaign_subset[] <- lapply(campaign_subset, function(x) type.convert(as.character(x)))
+# aggregate(. ~ Business_Unit__c, campaign_subset, sum)
+agg_campaign <- campaign_subset %>% 
+  group_by(Business_Unit__c, Campaign_Member_Source__c, 
+           CreatedById.y, NumberOfContacts) %>% 
+  count() %>% 
+  ungroup()
+  # summarise(BU_agg = count(Business_Unit__c),
+  #           CMS_agg = count(Campaign_Member_Source__c))
+# aggregate(freq~Business_Unit__c+Campaign_Member_Source__c,data=campaign_subset,sum)
+
+#### merge campiang users to Users_SF
+campaign_users <- inner_join(agg_campaign, users_SF,
+                             by = c("CreatedById.y"="Id"))
+
+#### Merge aggregated campaigns to BU_join
+campaign_join_BU <- inner_join(agg_campaign, BU_join,
+                        by = c("Business_Unit__c"="et4ae5__Business_Unit__c"))
+write_named_csv(campaign_join_BU)
+
+# campaign_join_BU <- campaign_join_BU %>% 
+#   distinct()
+
+users_campaign_join_BU <- inner_join(campaign_users, BU_join,
+                               by = c("Business_Unit__c"="et4ae5__Business_Unit__c"))
+write_named_csv(users_campaign_join_BU) # with Users
+
+
+#### clean netid ####
+users_campaign_join_BU$from_User <- stri_match_first_regex(users_campaign_join_BU$Username,
+                                                "(.*?)\\@")[,2]
+users_campaign_BU <- users_campaign_join_BU %>%
+  dplyr::mutate(NetID = case_when(!is.na(from_NetID__c) ~ from_NetID__c,
+                                  TRUE ~ from_User))
+write_named_csv(users_campaign_BU)
+#### subset data with useful variables ####
+users_campaign_BU2 <- users_campaign_BU %>% 
+  select(Business_Unit__c, Campaign_Member_Source__c, NumberOfContacts, 
+         n, CreatedDate.y, 
+         et4ae5__DateSent__c, et4ae5__FromEmail__c, et4ae5__FromName__c, 
+         from_NetID__c, Profile.Name, UserRole.Name, from_User) %>% 
+  distinct() 
+
+write_named_csv(users_campaign_BU2)
+
+
+
+# users_campaign_BU <- inner_join(campaign_join_BU, users_SF,
+#                                 by = c("CreatedById.y" = "Id"))
+#campaign_subset <- campaign_join[campaign_join$Campaign_Member_Source__c %in% c('Manual','Contact Import - Full Service','Contact Import - Self Service'),]
+
+#### merge BU Join to campaign ####
+# BU_campaign_1a <- inner_join(campaign, BU_join_1a,
+#                       by = c("Business_Unit__c"="Business_Unit__c")) # filter outhalf of BU_join
+# 
+# BU_campaign_1b <- inner_join(campaign, BU_join_1b,
+#                              by = c("Business_Unit__c"="Business_Unit__c")) # filter outhalf of BU_join
 
 
 
@@ -130,55 +194,129 @@ BU_campaign_1b <- inner_join(campaign, BU_join_1b,
 # split the BU join in half
 
 # check unique campaign members source
-unique(campaign_mem$Campaign_Member_Source__c) #there are 8
+# unique(campaign_mem$Campaign_Member_Source__c) #there are 8
 
 # subset data based on the campaign member source
-historical_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
-                                 "Historical",]
-pc_list_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
-                              "Parent/Child - List",]
+# historical_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
+#                                  "Historical",]
+# pc_list_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
+#                               "Parent/Child - List",]
+# 
+# recipient_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
+#                                 "Recipient Request",]
+# full_service_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
+#                                    "Contact Import - Full Service",]
+# 
+# manual_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
+#                              "Manual",]
+# self_service_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
+#                                    "Contact Import - Self Service",]
+# 
+# MCBU_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
+#                            "Marketing Cloud Business Unit Relationship",]
+# pc_relationship_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
+#                                       "Parent/Child - Relationship",]
+# historical_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
+#                                  "Historical",]
+# pc_list_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
+#                               "Parent/Child - List",]
+# 
+# recipient_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
+#                                 "Recipient Request",]
+# full_service_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
+#                                    "Contact Import - Full Service",]
+# 
+# manual_join <- campaign_join[campaign_join$Campaign_Member_Source__c == 
+#                              "Manual",]
+# self_service_join <- campaign_join[campaign_join$Campaign_Member_Source__c == 
+#                                    "Contact Import - Self Service",]
+# # 
+# # MCBU_join <- campaign_join[campaign_join$Campaign_Member_Source__c == 
+# #                            "Marketing Cloud Business Unit Relationship",]
+# # pc_relationship_join <- campaign_join[campaign_join$Campaign_Member_Source__c == 
+# #                                       "Parent/Child - Relationship",]
+# 
+# full_service_join <- campaign_join[campaign_join$Campaign_Member_Source__c ==
+#                                    "Contact Import - Full Service",]
+# # OR 
+# full_service_join <- subset(campaign_join, Campaign_Member_Source__c ==
+#                               "Contact Import - Full Service")
 
-recipient_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
-                                "Recipient Request",]
-full_service_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
-                                   "Contact Import - Full Service",]
+# #### merge campaign and campaign member ####
+# BU_campaign <- inner_join(campaign_subset, BU_join, 
+#                           by = c("Business_Unit__c"="et4ae5__Business_Unit__c"))
 
-manual_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
-                             "Manual",]
-self_service_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
-                                   "Contact Import - Self Service",]
-
-MCBU_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
-                           "Marketing Cloud Business Unit Relationship",]
-pc_relationship_mem <- campaign_mem[campaign_mem$Campaign_Member_Source__c == 
-                                      "Parent/Child - Relationship",]
-
-#### merge campaign and campaign member ####
-campaign_historical <- inner_join(campaign, historical_mem, 
-                      by = c("CreatedById"="CreatedById"))
-write_named_csv(campaign_historical)
-
-
-campaign_pc_list <- inner_join(campaign, pc_list_mem, 
-                                  by = c("CreatedById"="CreatedById"))
-write_named_csv(campaign_pc_list)
-
-
-campaign_manual <- inner_join(campaign, manual_mem, 
-                               by = c("CreatedById"="CreatedById"))
-write_named_csv(campaign_manual)
-
-
-campaign_self_serv <- inner_join(campaign, self_service_mem, 
-                               by = c("CreatedById"="CreatedById"))
-write_named_csv(campaign_self_serv)
-
-
-campaign_MCBU <- inner_join(campaign, MCBU_mem, 
-                              by = c("CreatedById"="CreatedById"))
-write_named_csv(campaign_MCBU)
-
-
-campaign_pc_rel <- inner_join(campaign, pc_relationship_mem, 
-                               by = c("CreatedById"="CreatedById"))
-write_named_csv(campaign_pc_relationship)
+# #### merge users to campaign Mem ####
+# BU_manual <- inner_join(manual_join, BU_join, 
+#                           by = c("Business_Unit__c"="et4ae5__Business_Unit__c"))
+# BU_manual <- Bu_manual %>% 
+#   distinct()
+# 
+# write_named_csv(BU_manual)
+# 
+# 
+# BU_full_service <- inner_join(full_service_join, BU_join, 
+#                               by = c("Business_Unit__c"="et4ae5__Business_Unit__c"))
+# BU_self_service <- inner_join(self_service_join, BU_join, 
+#                               by = c("Business_Unit__c"="et4ae5__Business_Unit__c"))
+# 
+# #### aggregate full and self service data
+# full_service_join$Business_Unit__c <- as.factor(full_service_join$Business_Unit__c)
+# 
+# library(dplyr) # to try
+# full_service_join %>%
+#   group_by(Business_Unit__c) %>%
+#   summarise(occurrences = n()) %>% 
+#   ungroup()
+# 
+# # head(aggregate(full_service_join$Business_Unit__c,
+# #                list(time = full_service_join$CreatedDate),
+# #                sum))
+# 
+# # full_service_join %>% 
+# #   group_by(Business_Unit__c) %>% 
+# #   summarize_each(funs(sum)) %>% 
+# #   ungroup()
+# # 
+# # full_service_join %>% 
+# #   group_by(Business_Unit__c) %>% 
+# #   summarise (agg_bu = sum(Business_Unit__c))
+# # library(tidyr)
+# # agg_BU = aggregate(full_service_join[,5],
+# #                    by=list(full_service_join$Business_Unit__c),
+# #                    FUN=sum, na.rm=TRUE)
+# # agg_BU
+# # 
+# # library(reshape2)
+# # melted_data <- melt(full_service_join, id.vars = "Business_Unit__c")
+# # dcast(melted_data, Business_Unit__c ~ variable, sum)
+# 
+# ####
+# # campaign_historical <- inner_join(campaign, historical_mem, 
+# #                       by = c("Id"="CampaignId"))
+# # write_named_csv(campaign_historical)
+# # 
+# # 
+# # campaign_pc_list <- inner_join(campaign, pc_list_mem, 
+# #                                   by = c("CreatedById"="CreatedById"))
+# # write_named_csv(campaign_pc_list)
+# # 
+# # 
+# # campaign_manual <- inner_join(campaign, manual_mem, 
+# #                                by = c("CreatedById"="CreatedById"))
+# # write_named_csv(campaign_manual)
+# # 
+# # 
+# # campaign_self_serv <- inner_join(campaign, self_service_mem, 
+# #                                by = c("CreatedById"="CreatedById"))
+# # write_named_csv(campaign_self_serv)
+# # 
+# # 
+# # campaign_MCBU <- inner_join(campaign, MCBU_mem, 
+# #                               by = c("CreatedById"="CreatedById"))
+# # write_named_csv(campaign_MCBU)
+# # 
+# # 
+# # campaign_pc_rel <- inner_join(campaign, pc_relationship_mem, 
+# #                                by = c("CreatedById"="CreatedById"))
+# # write_named_csv(campaign_pc_relationship)
