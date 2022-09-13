@@ -141,9 +141,9 @@ campaign_users <- inner_join(agg_campaign, users_SF,
                              by = c("CreatedById.y"="Id"))
 
 #### Merge aggregated campaigns to BU_join
-campaign_join_BU <- inner_join(agg_campaign, BU_join,
-                        by = c("Business_Unit__c"="et4ae5__Business_Unit__c"))
-write_named_csv(campaign_join_BU)
+# campaign_join_BU <- inner_join(agg_campaign, BU_join,
+#                         by = c("Business_Unit__c"="et4ae5__Business_Unit__c"))
+# write_named_csv(campaign_join_BU)
 
 # campaign_join_BU <- campaign_join_BU %>% 
 #   distinct()
@@ -170,6 +170,13 @@ users_campaign_BU2 <- users_campaign_BU %>%
 
 write_named_csv(users_campaign_BU2)
 
+#### subset users to see percentages ####
+users_campaign_BU2 %>% 
+  group_by(Campaign_Member_Source__c) %>% 
+  summarise(count = n() ) %>%
+  mutate(prop = count / sum(count))
+
+#### count the NA ####
 
 
 # users_campaign_BU <- inner_join(campaign_join_BU, users_SF,
