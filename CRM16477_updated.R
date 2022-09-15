@@ -70,7 +70,7 @@ users_SF <- sf_query(soql_users, object_name="User", api_type="Bulk 1.0")
 
 #### Campaign ####
 solq_campaign <- sprintf("SELECT LastModifiedById, Type, RecordTypeId,
-                            NumberOfContacts, Business_Unit__c, Id,
+                            NumberOfContacts, Business_Unit__c, Id, Status,
                             ParentId, CreatedById, OwnerId
                        FROM Campaign")
 campaign <- sf_query(solq_campaign, object_name="Campaign",
@@ -87,6 +87,12 @@ solq_campaign_mem <- sprintf("SELECT CampaignId,
 campaign_mem <- sf_query(solq_campaign_mem, object_name="CampaignMember",
                      api_type="Bulk 1.0")
 
+# #### add sendjunction ####
+# solq_junction <- sprintf("SELECT et4ae5__Campaign__c, 
+#                         et4ae5__SendDefinition__c
+#                        FROM et4ae5__SendJunction__c")
+# junction <- sf_query(solq_junction, object_name="et4ae5__SendJunction__c",
+#                   api_type="Bulk 1.0") 
 
 #### merge in business units and email ####
 library(stringr)
@@ -127,11 +133,21 @@ campaign_subset <- campaign_join %>%
 
 # campaign_subset[] <- lapply(campaign_subset, function(x) type.convert(as.character(x)))
 # aggregate(. ~ Business_Unit__c, campaign_subset, sum)
-agg_campaign <- campaign_subset %>% 
-  group_by(Business_Unit__c, Campaign_Member_Source__c, 
-           CreatedById.y, NumberOfContacts) %>% 
-  count() %>% 
-  ungroup()
+
+
+agg_campaign <- campaign_subset %>%
+  group_by(Business_Unit__c, Campaign_Member_Source__c,
+           CreatedById.y, NumberOfContacts, CreatedDate) %>%
+  count() %>%
+  ungroup() # including number of contacts and Created date 
+# gets too large with CreatedDate
+
+
+# agg_campaign <- campaign_subset %>%
+#   group_by(Business_Unit__c, Campaign_Member_Source__c,
+#            CreatedById.y) %>%
+#   count() %>%
+#   ungroup()
   # summarise(BU_agg = count(Business_Unit__c),
   #           CMS_agg = count(Campaign_Member_Source__c))
 # aggregate(freq~Business_Unit__c+Campaign_Member_Source__c,data=campaign_subset,sum)
@@ -162,22 +178,24 @@ users_campaign_BU <- users_campaign_join_BU %>%
 write_named_csv(users_campaign_BU)
 #### subset data with useful variables ####
 users_campaign_BU2 <- users_campaign_BU %>% 
-  select(Business_Unit__c, Campaign_Member_Source__c, NumberOfContacts, 
-         n, CreatedDate.y, 
+  select(Business_Unit__c, Campaign_Member_Source__c, CreatedById.y,
+         n, CreatedDate.y, NetID, Display_Name__c,NumberOfContacts,
          et4ae5__DateSent__c, et4ae5__FromEmail__c, et4ae5__FromName__c, 
          from_NetID__c, Profile.Name, UserRole.Name, from_User) %>% 
-  distinct() 
+  distinct()   
 
 write_named_csv(users_campaign_BU2)
 
 #### subset users to see percentages ####
 users_campaign_BU2 %>% 
   group_by(Campaign_Member_Source__c) %>% 
-  summarise(count = n() ) %>%
-  mutate(prop = count / sum(count))
+  # summarise(count = n() ) %>%
+  # mutate(prop = count / sum(count))
+  summarise(n = n()) %>%
+  mutate(freq = paste0(round(n / sum(n) * 100, 1), "%"))
 
 #### count the NA ####
-
+colSums(is.na(users_campaign_BU2))
 
 # users_campaign_BU <- inner_join(campaign_join_BU, users_SF,
 #                                 by = c("CreatedById.y" = "Id"))
