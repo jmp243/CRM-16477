@@ -122,12 +122,16 @@ memory.limit(size=2000000)
 #### merge campaign to campaign mem ####
 campaign_join <- inner_join(campaign, campaign_mem, 
                             by = c("Id" = "CampaignId"))
+# rename Id to CampaignId
+
+campaign_join <- rename(campaign_join, "CampaignId" = Id)
 
 unique(campaign_join$Campaign_Member_Source__c)
 
 # campaign join is too large so consider aggregation
 campaign_subset <- campaign_join %>%
   select(Business_Unit__c, CreatedDate, Campaign_Member_Source__c, 
+         CampaignId, 
          CreatedById.y, NumberOfContacts) %>% 
   distinct()
 
@@ -135,14 +139,16 @@ campaign_subset <- campaign_join %>%
 # aggregate(. ~ Business_Unit__c, campaign_subset, sum)
 
 
-agg_campaign <- campaign_subset %>%
+agg_campaignId <- campaign_subset %>%
   group_by(Business_Unit__c, Campaign_Member_Source__c,
-           CreatedById.y, NumberOfContacts, CreatedDate) %>%
+           CampaignId,
+           CreatedById.y, NumberOfContacts) %>%
   count() %>%
+  distinct() %>% 
   ungroup() # including number of contacts and Created date 
 # gets too large with CreatedDate
 
-
+write_named_csv(agg_campaignId)
 # agg_campaign <- campaign_subset %>%
 #   group_by(Business_Unit__c, Campaign_Member_Source__c,
 #            CreatedById.y) %>%
@@ -153,7 +159,7 @@ agg_campaign <- campaign_subset %>%
 # aggregate(freq~Business_Unit__c+Campaign_Member_Source__c,data=campaign_subset,sum)
 
 #### merge campiang users to Users_SF
-campaign_users <- inner_join(agg_campaign, users_SF,
+campaign_users <- inner_join(agg_campaignId, users_SF,
                              by = c("CreatedById.y"="Id"))
 
 #### Merge aggregated campaigns to BU_join
@@ -177,17 +183,30 @@ users_campaign_BU <- users_campaign_join_BU %>%
                                   TRUE ~ from_User))
 write_named_csv(users_campaign_BU)
 #### subset data with useful variables ####
-users_campaign_BU2 <- users_campaign_BU %>% 
+# users_campaign_BU2 <- users_campaign_BU %>% 
+#   select(Business_Unit__c, Campaign_Member_Source__c, CreatedById.y,
+#          n, NetID, Display_Name__c,NumberOfContacts, CampaignId,
+#          et4ae5__DateSent__c, et4ae5__FromEmail__c, et4ae5__FromName__c, 
+#          from_NetID__c, Profile.Name, UserRole.Name, from_User) %>% 
+#   distinct()  # without the CreatedDate 
+# 
+# write_named_csv(users_campaign_BU2)
+
+users_campaign_BU3 <- users_campaign_BU %>% 
   select(Business_Unit__c, Campaign_Member_Source__c, CreatedById.y,
-         n, CreatedDate.y, NetID, Display_Name__c,NumberOfContacts,
+         n, NetID, Display_Name__c,NumberOfContacts, CampaignId,
          et4ae5__DateSent__c, et4ae5__FromEmail__c, et4ae5__FromName__c, 
          from_NetID__c, Profile.Name, UserRole.Name, from_User) %>% 
-  distinct()   
+  distinct()  # without the CreatedDate 
 
-write_named_csv(users_campaign_BU2)
+#### remove Test and Trellis ####
+users_campaign_BU4 <- subset(users_campaign_BU3, 
+                             !(Display_Name__C %in% c("Test", "Trellis")))
+
+write_named_csv(users_campaign_BU4)
 
 #### subset users to see percentages ####
-users_campaign_BU2 %>% 
+users_campaign_BU3 %>% 
   group_by(Campaign_Member_Source__c) %>% 
   # summarise(count = n() ) %>%
   # mutate(prop = count / sum(count))
@@ -195,7 +214,7 @@ users_campaign_BU2 %>%
   mutate(freq = paste0(round(n / sum(n) * 100, 1), "%"))
 
 #### count the NA ####
-colSums(is.na(users_campaign_BU2))
+colSums(is.na(users_campaign_BU3))
 
 # users_campaign_BU <- inner_join(campaign_join_BU, users_SF,
 #                                 by = c("CreatedById.y" = "Id"))
